@@ -46,6 +46,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import mujoco
+import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 PSM_DIR = ROOT / "model" / "psm"
@@ -80,6 +81,13 @@ MIMIC = {
     "pitch_front_joint": ("pitch_back_joint", +1.0),
     "tool_gripper1_joint": ("tool_gripper2_joint", -1.0),
 }
+
+# Surgical scene, defined relative to the tool tip at the home pose so it tracks
+# the keyframe rather than hard-coded world coordinates. The anatomy sits off to
+# +y so a straight tip path from home to the goal would pass through it.
+ANATOMY_OFFSET = (0.0, 0.014, 0.012)
+ANATOMY_RADIUS = 0.010
+GOAL_OFFSET = (0.0, 0.026, 0.0)
 
 # The six joints that actually position the instrument, in chain order.
 ACTUATED = [
@@ -213,7 +221,49 @@ def build() -> None:
     for j in ACTUATED:
         ET.SubElement(act, "velocity", {"name": f"v_{j}", "joint": j, "kv": "50"})
 
-    # 4. Home pose: partially inserted, so the tool is through the port and the
+    # 4. A visible surgical scene. The raw import is the bare robot on a black
+    #    background, which renders as an unlit instrument floating in space.
+    #    Anatomy and goal are real geoms/sites (not just SDF parameters) so the
+    #    demo can read their pose and the picture cannot drift from the maths --
+    #    the same contract scene.xml and scene_panda.xml use.
+    world = root.find("worldbody")
+    ET.SubElement(world, "light", {
+        "pos": "0 0.30 0.35", "dir": "0 0.4 -1",
+        "diffuse": "0.9 0.9 0.9", "specular": "0.2 0.2 0.2"})
+    ET.SubElement(world, "light", {
+        "pos": "0.4 0.70 0.20", "dir": "-1 -0.4 -0.4",
+        "diffuse": "0.45 0.45 0.5"})
+
+    asset = root.find("asset")
+    ET.SubElement(asset, "texture", {
+        "name": "grid", "type": "2d", "builtin": "checker",
+        "rgb1": "0.1 0.1 0.15", "rgb2": "0.18 0.18 0.24",
+        "width": "300", "height": "300"})
+    ET.SubElement(asset, "material", {
+        "name": "grid", "texture": "grid", "texrepeat": "8 8",
+        "reflectance": "0.15"})
+    ET.SubElement(world, "geom", {
+        "name": "floor", "type": "plane", "size": "1 1 0.01",
+        "pos": "0 0 -0.45", "material": "grid",
+        "contype": "0", "conaffinity": "0"})
+
+    # Patient wall at the remote centre, so the port is visible.
+    ET.SubElement(world, "geom", {
+        "name": "patient_wall", "type": "box", "size": "0.06 0.06 0.003",
+        "pos": f"{RCM_IN_BASE[0]:g} {RCM_IN_BASE[1]:g} {RCM_IN_BASE[2]:g}",
+        "rgba": "0.85 0.65 0.6 0.25", "contype": "0", "conaffinity": "0"})
+
+    # Anatomy and goal, positioned relative to the home tool tip (computed
+    # below from the freshly compiled model so they track the home pose).
+    ET.SubElement(world, "geom", {
+        "name": "forbidden", "type": "sphere", "size": f"{ANATOMY_RADIUS:g}",
+        "pos": "0 0 0", "rgba": "0.9 0.2 0.2 0.45",
+        "contype": "0", "conaffinity": "0"})
+    ET.SubElement(world, "site", {
+        "name": "goal", "type": "sphere", "size": "0.003",
+        "pos": "0 0 0", "rgba": "0.2 0.9 0.2 1"})
+
+    # 5. Home pose: partially inserted, so the tool is through the port and the
     #    wrist has room to work.
     key = ET.SubElement(root, "keyframe")
     nq = model.nq
@@ -240,13 +290,34 @@ def build() -> None:
         "     all-zero inertia tensors), so they are NOT the real PSM's. This\n"
         "     model is intended for kinematic work. -->\n"
     )
-    OUT.write_text(
-        '<?xml version="1.0" encoding="utf-8"?>\n'
-        + header
-        + ET.tostring(root, encoding="unicode")
-        + "\n"
-    )
-    print(f"wrote {OUT.relative_to(ROOT)}")
+    def emit():
+        ET.indent(tree, space="  ")
+        OUT.write_text(
+            '<?xml version="1.0" encoding="utf-8"?>\n'
+            + header
+            + ET.tostring(root, encoding="unicode")
+            + "\n"
+        )
+
+    # Second pass: the anatomy and goal are placed relative to the tool tip at
+    # the home pose, which is only knowable once the model compiles. Emit, read
+    # the tip back, then rewrite with the real coordinates.
+    emit()
+    probe = mujoco.MjModel.from_xml_path(str(OUT))
+    pd = mujoco.MjData(probe)
+    mujoco.mj_resetDataKeyframe(probe, pd, 0)
+    mujoco.mj_kinematics(probe, pd)
+    tip0 = pd.site_xpos[
+        mujoco.mj_name2id(probe, mujoco.mjtObj.mjOBJ_SITE, "tool_tip")].copy()
+
+    fmt = lambda v: " ".join(f"{x:.6g}" for x in v)
+    for tag, name, offset in (("geom", "forbidden", ANATOMY_OFFSET),
+                              ("site", "goal", GOAL_OFFSET)):
+        for el in root.iter(tag):
+            if el.get("name") == name:
+                el.set("pos", fmt(tip0 + np.asarray(offset)))
+    emit()
+    print(f"wrote {OUT.relative_to(ROOT)}  (tip at home: {fmt(tip0)})")
 
 
 def main() -> None:

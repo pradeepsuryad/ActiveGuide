@@ -1,7 +1,47 @@
 # ActiveGuide
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![MuJoCo](https://img.shields.io/badge/MuJoCo-3.9-blue.svg)](https://mujoco.org)
+[![tests](https://img.shields.io/badge/tests-81%20passing-brightgreen.svg)](tests/)
+
 Software/VR-assisted **virtual fixtures (active constraints)** for surgical
-robot control. The system identifies protected anatomy, builds **virtual walls**
+robot control.
+
+| Franka Panda (software RCM) | dVRK PSM (mechanical RCM) |
+|---|---|
+| ![Panda](docs/phase2_panda_qp.png) | ![PSM](docs/phase2_psm_qp.png) |
+
+**Headline result** — identical task, fixtures, damping, velocity box and
+integrator; the only difference is *where* enforcement happens:
+
+| robot | controller | goal | wall viol. | RCM max | p99 solve |
+|---|---|---|---|---|---|
+| Panda | Cartesian projection | 0.50 mm | 0.000 mm | **27.35 mm** | 524 µs |
+| Panda | **joint-space QP** | 0.50 mm | 0.000 mm | **0.50 mm** | 1548 µs |
+| PSM | Cartesian projection | 0.50 mm | 0.000 mm | 0.01 mm | 1254 µs |
+| PSM | **joint-space QP** | 0.50 mm | 0.000 mm | 0.01 mm | 2237 µs |
+
+On the **Panda** the trocar constraint exists only in software, and the QP holds
+it **55× tighter** — the Cartesian controller reaches the same goal while
+levering the shaft 27 mm out of the port, because a fixture on the tool tip
+cannot see the trocar at all.
+
+On the **PSM** both controllers score 0.01 mm: the da Vinci's remote centre is
+*mechanical*, so the parallelogram already guarantees it and the QP's RCM
+constraint is redundant. That is the honest result, and a useful one — it says
+joint-space enforcement is essential exactly when the constraint is not built
+into the hardware, and doubles as an independent check that controller and
+mechanism agree.
+
+![Panda dashboard](docs/phase2_panda_dashboard.png)
+
+Reproduce (video also written to `logs/`):
+
+```bash
+pip install -e ".[media]"
+python tools/build_psm.py --fetch          # derive the dVRK PSM model
+python -m activeguide.demo_phase2          # -> logs/phase2_*.png, *.mp4, results.md
+``` The system identifies protected anatomy, builds **virtual walls**
 (forbidden-region fixtures) and **guidance paths** (guidance fixtures) from it,
 enforces them on the robot, and surfaces them to the surgeon through a VR UI plus
 force or vibrotactile feedback.

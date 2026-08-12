@@ -15,3 +15,8 @@ model/psm/psm.urdf.xacro
 model/psm/psm.urdf
 model/psm/meshes/
 model/psm.xml
+
+# Python packaging
+*.egg-info/
+build/
+dist/
