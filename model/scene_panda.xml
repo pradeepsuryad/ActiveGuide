@@ -1,0 +1,159 @@
+<mujoco model="activeguide_panda_vf">
+  <!-- 7-DOF Franka Emika Panda with a rigid surgical shaft, posed for a
+       minimally-invasive task: the shaft enters through a fixed trocar and the
+       tip works around protected anatomy.
+
+       Kinematics are the official Panda link offsets and joint limits. Links
+       are capsule/box primitives rather than the Franka visual meshes, so this
+       file is self-contained (no mesh downloads) and the repo stays light. That
+       is sufficient here because the virtual-fixture benchmark is a *kinematic*
+       problem — it exercises the Jacobian, joint limits, and manipulability,
+       not link inertias or contact dynamics.
+
+       Sites the controller depends on:
+         tool_tip                  end of the shaft (the fixture target)
+         shaft_00 .. shaft_75      points along the shaft, for the RCM
+                                   constraint and shaft-clearance fixtures
+         trocar                    fixed world point the shaft must pivot through
+
+       No gravity: motion is commanded as joint velocity by the QP controller,
+       so the arm is kinematic and gravity would only fight the integrator. -->
+  <option timestep="0.002" gravity="0 0 0"/>
+  <compiler angle="radian" autolimits="true"/>
+
+  <visual>
+    <global offwidth="1280" offheight="720"/>
+    <quality shadowsize="2048"/>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3"/>
+  </visual>
+
+  <default>
+    <default class="panda">
+      <joint type="hinge" axis="0 0 1" damping="1"/>
+      <geom type="capsule" rgba="0.85 0.85 0.88 1" contype="0" conaffinity="0"/>
+    </default>
+    <default class="shaft">
+      <geom type="capsule" size="0.0035" rgba="0.75 0.78 0.82 1"
+            contype="0" conaffinity="0"/>
+    </default>
+  </default>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.1 0.1 0.15"
+             rgb2="0.18 0.18 0.24" width="300" height="300"/>
+    <material name="grid" texture="grid" texrepeat="6 6" reflectance="0.2"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0.3 0 0.9" dir="0 0 -1" diffuse="0.8 0.8 0.8"/>
+    <geom name="floor" type="plane" size="1 1 0.01" material="grid" pos="0 0 0"/>
+
+    <!-- ── Surgical scene ────────────────────────────────────────────────────
+         Placed under the Panda's natural "ready" workspace (tip lands near
+         x=0.31 with the shaft pointing down). Anatomy is offset in +y so a
+         straight tip path from start to goal would cut through it. -->
+
+    <!-- Trocar / port: the shaft must pivot through this point (RCM).
+         x=0.307 is exactly the shaft axis at the "ready" keyframe, so the
+         initial RCM deviation is zero and any deviation measured later is
+         caused by commanded motion rather than by the start state. -->
+    <site name="trocar" type="sphere" size="0.006" pos="0.307 0 0.34"
+          rgba="1.0 0.85 0.2 0.9"/>
+    <geom name="patient_wall" type="box" size="0.09 0.09 0.004"
+          pos="0.307 0 0.34" rgba="0.85 0.65 0.6 0.25"
+          contype="0" conaffinity="0"/>
+
+    <!-- Protected anatomy: the forbidden region. Demos read pos/size so the
+         SDF and the rendered surface cannot drift apart. Offset in +y so a
+         straight tip path from start to goal would cut through it. -->
+    <geom name="forbidden" type="sphere" size="0.025" pos="0.307 0.03 0.14"
+          rgba="0.9 0.2 0.2 0.35" contype="0" conaffinity="0"/>
+
+    <!-- Goal on the far side of the anatomy. 35 mm off the trocar axis, inside
+         the ~46 mm lateral excursion a 15 deg cone allows at this depth. -->
+    <site name="goal" type="sphere" size="0.006" pos="0.307 -0.035 0.15"
+          rgba="0.2 0.9 0.2 1"/>
+
+    <!-- ── Panda ────────────────────────────────────────────────────────────
+         Official Panda offsets/limits. Base at the world origin. -->
+    <body name="link0" childclass="panda">
+      <geom name="link0_g" size="0.06 0.04" fromto="0 0 0.02 0 0 0.14"/>
+
+      <body name="link1" pos="0 0 0.333">
+        <joint name="joint1" range="-2.8973 2.8973"/>
+        <geom name="link1_g" size="0.05" fromto="0 0 -0.09 0 0 0.02"/>
+
+        <body name="link2" quat="1 -1 0 0">
+          <joint name="joint2" range="-1.7628 1.7628"/>
+          <geom name="link2_g" size="0.05" fromto="0 0 0 0 -0.13 0"/>
+
+          <body name="link3" pos="0 -0.316 0" quat="1 1 0 0">
+            <joint name="joint3" range="-2.8973 2.8973"/>
+            <geom name="link3_g" size="0.045" fromto="0 0 -0.12 0 0 0.02"/>
+
+            <body name="link4" pos="0.0825 0 0" quat="1 1 0 0">
+              <joint name="joint4" range="-3.0718 -0.0698"/>
+              <geom name="link4_g" size="0.045" fromto="0 0 0 -0.0825 0.09 0"/>
+
+              <body name="link5" pos="-0.0825 0.384 0" quat="1 -1 0 0">
+                <joint name="joint5" range="-2.8973 2.8973"/>
+                <geom name="link5_g" size="0.038" fromto="0 0 -0.26 0 0 0.01"/>
+
+                <body name="link6" quat="1 1 0 0">
+                  <joint name="joint6" range="-0.0175 3.7525"/>
+                  <geom name="link6_g" size="0.038" fromto="0 0 0 0.06 0 0"/>
+
+                  <body name="link7" pos="0.088 0 0" quat="1 1 0 0">
+                    <joint name="joint7" range="-2.8973 2.8973"/>
+                    <geom name="link7_g" size="0.032" fromto="0 0 0 0 0 0.05"/>
+
+                    <!-- Flange, then the surgical shaft along local +z.
+                         SHAFT_LENGTH = 0.42 m, matching a real laparoscopic
+                         instrument (330-450 mm). At the "ready" pose this puts
+                         the tip at z=0.17, i.e. ~0.17 m past the trocar, with
+                         the anatomy at z=0.14 just below it. -->
+                    <body name="flange" pos="0 0 0.107" childclass="shaft">
+                      <geom name="flange_g" type="cylinder" size="0.028 0.012"
+                            rgba="0.3 0.32 0.36 1"/>
+                      <geom name="shaft_g" fromto="0 0 0 0 0 0.42"/>
+
+                      <!-- Shaft sample points, named by percent of shaft length
+                           from the flange (0.42 m). -->
+                      <site name="shaft_00" type="sphere" size="0.004"
+                            pos="0 0 0.00"  rgba="0.4 0.7 1 0.6"/>
+                      <site name="shaft_25" type="sphere" size="0.004"
+                            pos="0 0 0.105" rgba="0.4 0.7 1 0.6"/>
+                      <site name="shaft_50" type="sphere" size="0.004"
+                            pos="0 0 0.21"  rgba="0.4 0.7 1 0.6"/>
+                      <site name="shaft_75" type="sphere" size="0.004"
+                            pos="0 0 0.315" rgba="0.4 0.7 1 0.6"/>
+                      <site name="tool_tip" type="sphere" size="0.005"
+                            pos="0 0 0.42"  rgba="0.2 0.6 1.0 1"/>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <!-- Velocity actuators: the QP controller emits joint velocity directly. -->
+  <actuator>
+    <velocity name="a1" joint="joint1" kv="80"/>
+    <velocity name="a2" joint="joint2" kv="80"/>
+    <velocity name="a3" joint="joint3" kv="80"/>
+    <velocity name="a4" joint="joint4" kv="80"/>
+    <velocity name="a5" joint="joint5" kv="60"/>
+    <velocity name="a6" joint="joint6" kv="40"/>
+    <velocity name="a7" joint="joint7" kv="20"/>
+  </actuator>
+
+  <keyframe>
+    <!-- "ready": the canonical Panda pose, which points the flange forward and
+         down so the shaft descends through the trocar. -->
+    <key name="ready" qpos="0 -0.785 0 -2.356 0 1.571 0.785"/>
+  </keyframe>
+</mujoco>

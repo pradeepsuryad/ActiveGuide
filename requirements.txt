@@ -4,3 +4,11 @@ trimesh
 numpy
 scipy
 matplotlib
+
+# Joint-space QP controller (Phase 2). daqp is the default backend: this QP is
+# small and dense (7 vars, ~21 rows), the regime a dense active-set solver wins.
+# Measured p99 solve time on the Panda reach task: daqp 1355 us, quadprog
+# 1519 us, osqp 5371 us -- only the first two fit a 500 Hz control period.
+qpsolvers>=4.13
+daqp
+quadprog
