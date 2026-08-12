@@ -16,6 +16,12 @@ model/psm/psm.urdf
 model/psm/meshes/
 model/psm.xml
 
+# Baked anatomy. Regenerable offline in seconds and the .npz is megabytes, so
+# it is derived rather than tracked:  python tools/build_anatomy.py
+# (demo_phase3 also bakes it on first run if it is missing).
+model/anatomy_sdf.npz
+model/anatomy.stl
+
 # Python packaging
 *.egg-info/
 build/

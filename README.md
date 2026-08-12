@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![MuJoCo](https://img.shields.io/badge/MuJoCo-3.9-blue.svg)](https://mujoco.org)
-[![tests](https://img.shields.io/badge/tests-81%20passing-brightgreen.svg)](tests/)
+[![tests](https://img.shields.io/badge/tests-127%20passing-brightgreen.svg)](tests/)
 
 Software/VR-assisted **virtual fixtures (active constraints)** for surgical
 robot control.
@@ -35,13 +35,34 @@ mechanism agree.
 
 ![Panda dashboard](docs/phase2_panda_dashboard.png)
 
-Reproduce (video also written to `logs/`):
+**Second result (Phase 3)** — the same fixtures, but the protected anatomy is
+now a *segmented surface mesh* rather than a sphere. One organ, three models of
+it, every run scored against the true mesh:
+
+| controller's model of the organ | reached goal | **true clearance** | inside the organ |
+|---|---|---|---|
+| circumscribed sphere | 0.50 mm (48% longer path) | 10.53 mm | 0.00 mm |
+| inscribed sphere | 0.50 mm | **−0.68 mm** | **0.68 mm** |
+| **baked mesh SDF** | 0.50 mm (fastest) | 4.40 mm | 0.00 mm |
+
+All three controllers believed they were safe the whole time — a fixture cannot
+detect that its own model of the anatomy is wrong. The error is in the *shape*,
+not the radius: no sphere about this centre is within 12.2 mm of the surface
+everywhere, so shrinking it only trades tissue left unprotected (25.7 cm³, 57%
+of the organ) against workspace needlessly denied (55.2 cm³).
+
+![Phase 3 field](docs/phase3_field.png)
+
+Reproduce (videos also written to `logs/`):
 
 ```bash
 pip install -e ".[media]"
 python tools/build_psm.py --fetch          # derive the dVRK PSM model
 python -m activeguide.demo_phase2          # -> logs/phase2_*.png, *.mp4, results.md
-``` The system identifies protected anatomy, builds **virtual walls**
+python -m activeguide.demo_phase3          # -> logs/phase3_*.png, *.mp4, results.md
+```
+
+The system identifies protected anatomy, builds **virtual walls**
 (forbidden-region fixtures) and **guidance paths** (guidance fixtures) from it,
 enforces them on the robot, and surfaces them to the surgeon through a VR UI plus
 force or vibrotactile feedback.
@@ -143,11 +164,62 @@ This gives the benchmark a genuine contrast: on the Panda the RCM must be
 enforced *in software*; on the PSM it is *mechanical* and the same constraint
 becomes an independent check that controller and mechanism agree.
 
+**Phase 3 — walls built from segmented anatomy.** Phases 0–2 protected a sphere,
+because a closed-form SDF was all the controller needed. Real anatomy comes out
+of a CT/MR segmentation as a label volume or a surface mesh, and it is neither
+spherical nor convex.
+
+- `activeguide/anatomy.py` — `MeshSdf` (exact closest-triangle distance, the
+  *oracle*), `bake_mesh` (mesh → grid), `bake_labels` (segmentation label volume
+  → grid, straight through `distance_transform_edt`, no meshing step),
+  `make_phantom`, and mesh loading with unit scaling and hole repair.
+- `activeguide/sdf.py` — `VoxelSdf`: the baked field. Trilinear lookup with an
+  analytic gradient.
+- `tools/build_anatomy.py` — bakes and caches; `--mesh liver.stl --scale 0.001`
+  for real data.
+
+Neither `constraints.py` nor `qp.py` needed a line changed: a baked field is an
+`SDF`, so `SdfConstraint` and `ShaftClearanceConstraint` already accept it. That
+is what keeping one representation since Phase 0 bought.
+
+Three things were worth getting right:
+
+**Exact mesh queries are not real-time.** One distance-plus-gradient evaluation
+against exact geometry costs **3.2 ms**, and a control step needs one per sample
+point — tip plus two shaft samples here — against a 2 ms budget for the whole
+step. Baking moves that cost offline and makes the online cost independent of
+mesh complexity: **6.0 µs** for the same query, a 540× reduction, and a
+200k-triangle liver queries as fast as a sphere. `rtree` is not required —
+closest-triangle search runs on `scipy.spatial.cKDTree`, and the candidate
+pruning is checked against brute force over every triangle rather than assumed.
+
+**Inside/outside is where mesh SDFs go wrong,** so it is decided twice by
+unrelated methods — generalised winding number for the oracle, grid flood fill
+for the bake — and the bake cross-checks one against the other. A sign error
+silently inverts a safety constraint into an attractor.
+
+**Discretisation must only ever cost clearance, never borrow it.** Trilinear
+interpolation rounds off the creases of a distance field and *over*-estimates
+there, which is the unsafe direction. The bake measures that bound (probing
+uniformly as well as near the surface, since area-weighted surface sampling
+barely lands on the edges where the error lives) and the demo dilates the field
+by its own measured error, so the interpolated wall is conservative by
+construction.
+
+Measured driving the Panda tip past a 45 cm³ lobed organ: goal reached to
+0.50 mm, **zero** penetration of the true mesh audited by `MeshSdf`, RCM held at
+0.50 mm, 0% infeasible, p50/p99 solve **183/603 µs** (measured with
+`--no-video`; interleaving the renderer into the control loop roughly doubles
+it, and is not what a controller does).
+
+![Phase 3 dashboard](docs/phase3_dashboard.png)
+
 ## Roadmap
 - **Phase 1** Guidance fixtures + interactive teleop. *(done; Quest viz pending)*
-- **Phase 2** Joint-space QP enforcement + RCM. *(Panda + dVRK PSM done)*
-- **Phase 2b** Swappable feedback: dVRK MTM force vs. Quest vibration.
-- **Phase 3** Build walls from segmented anatomy (CT/mesh → offset → SDF).
+- **Phase 2** Joint-space QP enforcement + RCM. *(done)*
+- **Phase 2b** The real dVRK PSM, mechanical RCM. *(done)*
+- **Phase 2c** Swappable feedback: dVRK MTM force vs. Quest vibration.
+- **Phase 3** Build walls from segmented anatomy (CT/mesh → offset → SDF). *(done)*
 - **Phase 4** AI task recognition selects which fixtures are active.
 - **Phase 5** "Second-person" features (camera / retraction / next-step).
 - **Phase 6** User study: solo+system vs. solo vs. two-person.
@@ -161,7 +233,7 @@ becomes an independent check that controller and mechanism agree.
 | **Viewer / input** | `glfw` (interactive teleop window, mouse camera) |
 | **Numerics** | `numpy`, `scipy` |
 | **QP controller** | `qpsolvers` ≥ 4.13 with `daqp` (default) / `quadprog` |
-| **Geometry** | `trimesh` (Phase 3 — anatomy meshes → SDF) |
+| **Geometry** | `trimesh` (mesh I/O + phantom); `scipy` does the SDF bake |
 | **Plots** | `matplotlib` (writes to `logs/`) |
 | **Tests** | `unittest` (stdlib) |
 | **Target hardware** | dVRK (MTM force feedback) + Meta Quest (vibrotactile) — Phase 2+ |
@@ -183,10 +255,17 @@ python -m venv .venv
 # Phase 1 — guidance + wall (headless, then interactive teleop)
 .\.venv\Scripts\python.exe -m activeguide.demo_phase1
 .\.venv\Scripts\python.exe -m activeguide.demo_phase1 --view   # WASD/QE move, mouse camera
+# Phase 2 — Cartesian projection vs joint-space QP, on both robots
+.\.venv\Scripts\python.exe -m activeguide.demo_phase2
+# Phase 3 — segmented anatomy: sphere approximations vs the baked mesh field
+.\.venv\Scripts\python.exe tools\build_anatomy.py          # optional: demo bakes on first run
+.\.venv\Scripts\python.exe tools\build_anatomy.py --mesh liver.stl --scale 0.001
+.\.venv\Scripts\python.exe -m activeguide.demo_phase3
 # build the dVRK PSM model (fetches upstream assets; needed for the PSM tests)
 .\.venv\Scripts\python.exe tools\build_psm.py --fetch
-# tests (81: 24 from Phases 0-1, 40 for the QP layer, 17 for the PSM.
-#        the PSM tests skip cleanly if model/psm.xml has not been built)
+# tests (127: 24 from Phases 0-1, 40 for the QP layer, 17 for the PSM,
+#        46 for the anatomy pipeline. The PSM tests skip cleanly if
+#        model/psm.xml has not been built; the anatomy tests need no assets.)
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
