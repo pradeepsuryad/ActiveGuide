@@ -1,0 +1,44 @@
+<mujoco model="activeguide_phase0">
+  <!-- Surgical workspace is ~0.2 m across. No gravity: the tool is kinematic
+       (a mocap body) and the virtual fixture is what governs its motion. -->
+  <option timestep="0.002" gravity="0 0 0"/>
+
+  <visual>
+    <global offwidth="1280" offheight="720"/>
+    <quality shadowsize="2048"/>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3"/>
+  </visual>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.1 0.1 0.15"
+             rgb2="0.18 0.18 0.24" width="300" height="300"/>
+    <material name="grid" texture="grid" texrepeat="6 6" reflectance="0.2"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 0.6" dir="0 0 -1" diffuse="0.8 0.8 0.8"/>
+    <geom name="floor" type="plane" size="0.5 0.5 0.01" material="grid" pos="0 0 0"/>
+
+    <!-- Forbidden region: protected anatomy. The demo reads its pos/size so
+         the SDF and the rendered surface are guaranteed to match. -->
+    <geom name="forbidden" type="sphere" size="0.04" pos="0 0 0.10"
+          rgba="0.9 0.2 0.2 0.35" contype="0" conaffinity="0"/>
+
+    <!-- Goal on the far side of the forbidden sphere: a straight line from the
+         tool start to the goal passes through it. -->
+    <site name="goal" type="sphere" size="0.008" pos="-0.12 0 0.10"
+          rgba="0.2 0.9 0.2 1"/>
+
+    <!-- Tool tip: what the robot actually does (constrained by the fixture). -->
+    <body name="tool" mocap="true" pos="0.12 0.012 0.10">
+      <geom name="tool_tip" type="sphere" size="0.006" rgba="0.2 0.6 1.0 1"
+            contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- Ghost: the raw, unconstrained command (drives straight through). -->
+    <body name="ghost" mocap="true" pos="0.12 0.012 0.10">
+      <geom name="ghost_tip" type="sphere" size="0.006" rgba="1.0 0.8 0.2 0.4"
+            contype="0" conaffinity="0"/>
+    </body>
+  </worldbody>
+</mujoco>

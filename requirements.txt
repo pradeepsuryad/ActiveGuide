@@ -1,0 +1,6 @@
+mujoco>=3.9
+glfw
+trimesh
+numpy
+scipy
+matplotlib
