@@ -36,6 +36,22 @@ assistance to do what normally needs a second pair of hands.
 - **Phase 5** "Second-person" features (camera / retraction / next-step).
 - **Phase 6** User study: solo+system vs. solo vs. two-person.
 
+## Stack & requirements
+
+| | |
+|---|---|
+| **Language** | Python 3.11+ (developed on 3.14) |
+| **Physics** | [MuJoCo](https://mujoco.org) ≥ 3.9 |
+| **Viewer / input** | `glfw` (interactive teleop window, mouse camera) |
+| **Numerics** | `numpy`, `scipy` |
+| **Geometry** | `trimesh` (Phase 3 — anatomy meshes → SDF) |
+| **Plots** | `matplotlib` (writes to `logs/`) |
+| **Tests** | `unittest` (stdlib) |
+| **Target hardware** | dVRK (MTM force feedback) + Meta Quest (vibrotactile) — Phase 2+ |
+
+Runs headless for verification and plotting; `--view` opens the GLFW window and
+needs a GPU/display. `logs/` output is regenerable and not tracked.
+
 ## Setup
 ```powershell
 python -m venv .venv
