@@ -6,3 +6,12 @@ logs/*.csv
 
 # Demo output artifacts (regenerable via demo_phase0.py / demo_phase1.py)
 logs/
+
+# dVRK PSM assets fetched from upstream (WPI-AIM/dvrk_env) and everything
+# derived from them. Not redistributed here: that repo has no LICENSE file
+# (GitHub reports license: null) even though dvrk_description/package.xml
+# declares BSD. Regenerate with:  python tools/build_psm.py --fetch
+model/psm/psm.urdf.xacro
+model/psm/psm.urdf
+model/psm/meshes/
+model/psm.xml

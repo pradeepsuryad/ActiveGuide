@@ -61,9 +61,51 @@ The new layer is cross-validated against Phase 0: with `η = 1/dt` the VFI bound
 reduces algebraically to the old dt-aware clamp, and the two agree to **1e-8**
 in both the free and actively-clamped regimes (`tests/test_qp.py`).
 
+**Phase 2b — the real dVRK PSM.** The same fixture stack runs unchanged on the
+actual da Vinci Patient-Side Manipulator, derived from the official description.
+
+**There is no official dVRK MJCF** (checked 2026-08-12: not in
+`mujoco_menagerie`, not in `jhu-dvrk/dvrk_model`, not in `WPI-AIM/dvrk_env` —
+published dVRK sims target CoppeliaSim, Unity, Gazebo, Isaac/USD, or PyBullet).
+So `tools/build_psm.py` derives it reproducibly:
+
+```bash
+python tools/build_psm.py --fetch     # -> model/psm.xml
+```
+
+The upstream assets are **fetched, not redistributed** — `dvrk_env` has no
+LICENSE file despite declaring BSD in its package manifest. See
+[model/psm/NOTICE.md](model/psm/NOTICE.md).
+
+The conversion is not mechanical. **MuJoCo's URDF importer silently ignores
+`<mimic>` joints**, and the PSM's remote centre is *mechanical* — a parallelogram
+whose members the URDF slaves to `pitch_back_joint`. A naive import loads without
+warning, reports 13 independent DOFs instead of 6 + jaw, and is badly wrong:
+
+| Over 75 poses (yaw × pitch × insertion) | worst RCM error |
+|---|---|
+| couplings applied | **0.013 mm** |
+| couplings dropped (naive import) | **90.1 mm** |
+
+The builder restores them as `<equality><joint>` constraints, and
+`tests/test_psm.py::TestParallelogramIsLoadBearing` pins *both* directions so the
+fix cannot be silently removed. Because MuJoCo enforces `<equality>` only in its
+constraint solver during `mj_step`, while this controller integrates `q̇` itself,
+the couplings are *also* imposed as exact QP equality rows
+(`constraints.JointCoupling`, `PSM_COUPLING`).
+
+Measured driving the PSM tip through the port with wall + joint-limit + RCM
+fixtures: goal reached to **0.3 mm**, worst RCM deviation **≈7 µm** (structural,
+far tighter than the 500 µm the constraint permits), coupling residual
+**4e-16 rad/s**, zero violations, 0% infeasible, p50/p99 **485/1716 µs**.
+
+This gives the benchmark a genuine contrast: on the Panda the RCM must be
+enforced *in software*; on the PSM it is *mechanical* and the same constraint
+becomes an independent check that controller and mechanism agree.
+
 ## Roadmap
 - **Phase 1** Guidance fixtures + interactive teleop. *(done; Quest viz pending)*
-- **Phase 2** Joint-space QP enforcement + RCM. *(Panda done; dVRK PSM next)*
+- **Phase 2** Joint-space QP enforcement + RCM. *(Panda + dVRK PSM done)*
 - **Phase 2b** Swappable feedback: dVRK MTM force vs. Quest vibration.
 - **Phase 3** Build walls from segmented anatomy (CT/mesh → offset → SDF).
 - **Phase 4** AI task recognition selects which fixtures are active.
@@ -101,7 +143,10 @@ python -m venv .venv
 # Phase 1 — guidance + wall (headless, then interactive teleop)
 .\.venv\Scripts\python.exe -m activeguide.demo_phase1
 .\.venv\Scripts\python.exe -m activeguide.demo_phase1 --view   # WASD/QE move, mouse camera
-# tests (64: 24 from Phases 0-1, 40 for the Phase 2 QP layer)
+# build the dVRK PSM model (fetches upstream assets; needed for the PSM tests)
+.\.venv\Scripts\python.exe tools\build_psm.py --fetch
+# tests (81: 24 from Phases 0-1, 40 for the QP layer, 17 for the PSM.
+#        the PSM tests skip cleanly if model/psm.xml has not been built)
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 

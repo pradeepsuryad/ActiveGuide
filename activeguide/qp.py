@@ -26,7 +26,7 @@ import time
 import numpy as np
 import qpsolvers
 
-from .constraints import stack
+from .constraints import stack, stack_eq
 from .kinematics import RobotKinematics
 
 
@@ -53,10 +53,15 @@ class QpController:
 
     def __init__(self, kin: RobotKinematics, site: str, constraints,
                  damping: float = 1e-3, qd_limit: float = 1.5,
-                 solver: str = "daqp", slack_penalty: float = 1e6):
+                 solver: str = "daqp", slack_penalty: float = 1e6,
+                 equalities=()):
         self.kin = kin
         self.site = site
         self.constraints = list(constraints)
+        # Hard equalities: joint couplings and locked joints (see
+        # constraints.JointCoupling). Never slackened -- relaxing the dVRK
+        # parallelogram would silently produce a mechanically impossible robot.
+        self.equalities = list(equalities)
         self.damping = float(damping)
         self.qd_limit = float(qd_limit)
         self.solver = solver
@@ -89,6 +94,7 @@ class QpController:
         t0 = time.perf_counter()
         P, q, Jp = self._objective(v_des)
         G, h = stack(self.constraints, self.kin)
+        A, b = stack_eq(self.equalities, self.kin)
         nv = self.kin.nv
         lb = np.full(nv, -self.qd_limit)
         ub = np.full(nv, self.qd_limit)
@@ -97,6 +103,8 @@ class QpController:
             P, q,
             G=G if G.size else None,
             h=h if h.size else None,
+            A=A if A.size else None,
+            b=b if b.size else None,
             lb=lb, ub=ub, solver=self.solver,
         )
 
@@ -104,7 +112,7 @@ class QpController:
         if qdot is None:
             slack_used = True
             self.n_infeasible += 1
-            qdot = self._solve_with_slack(P, q, G, h, lb, ub)
+            qdot = self._solve_with_slack(P, q, G, h, lb, ub, A, b)
 
         dt_solve = time.perf_counter() - t0
         self.n_solves += 1
@@ -128,10 +136,13 @@ class QpController:
         )
         return qdot, info
 
-    def _solve_with_slack(self, P, q, G, h, lb, ub):
+    def _solve_with_slack(self, P, q, G, h, lb, ub, A=None, b=None):
         """Re-solve with per-row slack ``s >= 0`` penalized at ``slack_penalty``.
 
-        Variables become ``[qdot, s]``. Constraints relax to ``G qdot - s <= h``.
+        Variables become ``[qdot, s]``. Inequalities relax to ``G qdot - s <= h``.
+        Equalities are carried through *unrelaxed*: a joint coupling describes
+        the mechanism itself, so slackening it would not degrade gracefully, it
+        would invent a robot that cannot exist.
         """
         nv = self.kin.nv
         m = int(G.shape[0])
@@ -147,8 +158,13 @@ class QpController:
         lba = np.concatenate([lb, np.zeros(m)])
         uba = np.concatenate([ub, np.full(m, np.inf)])
 
-        sol = qpsolvers.solve_qp(Pa, qa, G=Ga, h=h, lb=lba, ub=uba,
-                                 solver=self.solver)
+        Aa = ba = None
+        if A is not None and A.size:
+            Aa = np.hstack([A, np.zeros((A.shape[0], m))])
+            ba = b
+
+        sol = qpsolvers.solve_qp(Pa, qa, G=Ga, h=h, A=Aa, b=ba,
+                                 lb=lba, ub=uba, solver=self.solver)
         return None if sol is None else sol[:nv]
 
     # --- integration -------------------------------------------------------

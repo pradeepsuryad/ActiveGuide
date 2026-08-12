@@ -56,6 +56,20 @@ class RobotKinematics:
             self._site_ids[name] = sid
         return sid
 
+    def dof_index(self, joint: str) -> int:
+        """DOF (qvel/qpos) index of a named 1-DOF joint.
+
+        Needed to express joint couplings -- e.g. the dVRK parallelogram, where
+        several joints are slaved to one -- as rows on qdot.
+        """
+        jid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, joint)
+        if jid < 0:
+            raise KeyError(f"no joint named {joint!r} in this model")
+        dof = int(self.model.jnt_dofadr[jid])
+        if not 0 <= dof < self.nv:
+            raise ValueError(f"joint {joint!r} has no DOF in this model")
+        return dof
+
     # --- state ------------------------------------------------------------
     @property
     def q(self) -> np.ndarray:

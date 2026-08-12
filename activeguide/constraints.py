@@ -280,9 +280,107 @@ class RcmConstraint(Constraint):
         return float(self.deviation(kin) - self.tol)
 
 
+class EqualityConstraint:
+    """Base class for constraints of the form ``A qdot = b``."""
+
+    name: str = "equality"
+
+    def eq_rows(self, kin: RobotKinematics) -> tuple[np.ndarray, np.ndarray]:
+        raise NotImplementedError
+
+
+class JointCoupling(EqualityConstraint):
+    """Slave joints to a driver joint, and lock joints, at the velocity level.
+
+    The dVRK PSM's remote centre of motion is *mechanical*: a parallelogram
+    whose members the URDF declares as ``<mimic>`` joints slaved to
+    ``pitch_back_joint``. Two of them (``pitch_bottom``, ``pitch_end``) lie on
+    the chain to the instrument, so the coupling is load bearing -- with the
+    mimics dropped, the remote centre wanders by up to 90 mm.
+
+    MJCF expresses the same thing as ``<equality><joint>``, but MuJoCo enforces
+    equality constraints in its *constraint solver* during ``mj_step``. This
+    controller integrates ``qdot`` itself, so the coupling has to hold in the
+    velocity space it actually solves in. Differentiating ``child = mult *
+    driver`` gives a exact linear row,
+
+        qdot_child - mult * qdot_driver = 0
+
+    which is enforced to solver tolerance by the QP rather than approximately by
+    a soft constraint. Starting from a consistent configuration, motion stays in
+    the coupling's null space and the parallelogram never drifts.
+
+    Locked joints (e.g. the PSM's setup-arm mount, which a fixed-base model
+    should not move) become ``qdot_j = 0``.
+    """
+
+    def __init__(self, couplings: dict[str, tuple[str, float]] | None = None,
+                 locked=(), name: str = "joint_coupling"):
+        self.couplings = dict(couplings or {})
+        self.locked = list(locked)
+        self.name = name
+
+    def eq_rows(self, kin):
+        n = len(self.couplings) + len(self.locked)
+        A = np.zeros((n, kin.nv))
+        b = np.zeros(n)
+        r = 0
+        for child, (driver, mult) in self.couplings.items():
+            A[r, kin.dof_index(child)] = 1.0
+            A[r, kin.dof_index(driver)] -= float(mult)
+            r += 1
+        for j in self.locked:
+            A[r, kin.dof_index(j)] = 1.0
+            r += 1
+        return A, b
+
+    def residual(self, kin: RobotKinematics, qdot) -> float:
+        """Largest coupling violation for a candidate ``qdot`` (rad/s)."""
+        A, b = self.eq_rows(kin)
+        if A.size == 0:
+            return 0.0
+        return float(np.abs(A @ np.asarray(qdot, dtype=float) - b).max())
+
+    def configuration_residual(self, kin: RobotKinematics) -> float:
+        """Largest coupling violation in the *configuration* (rad).
+
+        Should stay at its initial value: the velocity-level rows preserve
+        whatever consistency the start pose had, they do not repair it.
+        """
+        q = kin.q
+        worst = 0.0
+        for child, (driver, mult) in self.couplings.items():
+            worst = max(worst, abs(float(
+                q[kin.dof_index(child)] - mult * q[kin.dof_index(driver)])))
+        return worst
+
+
+# The PSM's parallelogram and jaw couplings, from the official URDF <mimic>
+# table. ``rev_joint`` is the setup-arm mount and is locked for a fixed base.
+PSM_COUPLING = JointCoupling(
+    couplings={
+        "pitch_bottom_joint": ("pitch_back_joint", -1.0),
+        "pitch_end_joint": ("pitch_back_joint", +1.0),
+        "pitch_top_joint": ("pitch_back_joint", -1.0),
+        "pitch_front_joint": ("pitch_back_joint", +1.0),
+        "tool_gripper1_joint": ("tool_gripper2_joint", -1.0),
+    },
+    locked=["rev_joint", "tool_gripper2_joint"],
+    name="psm_parallelogram",
+)
+
+
 def stack(constraints, kin: RobotKinematics) -> tuple[np.ndarray, np.ndarray]:
     """Concatenate every constraint's rows into one ``(G, h)`` pair."""
     if not constraints:
         return np.zeros((0, kin.nv)), np.zeros(0)
     Gs, hs = zip(*(c.rows(kin) for c in constraints))
     return np.vstack(Gs), np.concatenate(hs)
+
+
+def stack_eq(equalities, kin: RobotKinematics) -> tuple[np.ndarray, np.ndarray]:
+    """Concatenate equality constraints into one ``(A, b)`` pair."""
+    if not equalities:
+        return np.zeros((0, kin.nv)), np.zeros(0)
+    As, bs = zip(*(c.eq_rows(kin) for c in equalities))
+    return np.vstack(As), np.concatenate(bs)
