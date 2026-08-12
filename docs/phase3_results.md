@@ -6,9 +6,9 @@ forbidden region changes.
 
 | anatomy model          |       goal | TRUE clear | organ viol |  believed |  RCM max |     p99 |
 |--------------------------|--------------|--------------|--------------|-------------|------------|-----------|
-| circumscribed sphere   |    0.50 mm |   10.53 mm |    0.00 mm |  -0.22 mm |  0.50 mm |  866 us |
-| inscribed sphere       |    0.50 mm |   -0.68 mm |    0.68 mm |   0.00 mm |  0.50 mm |  864 us |
-| baked mesh SDF (ours)  |    0.50 mm |    4.40 mm |    0.00 mm |   0.00 mm |  0.50 mm | 1109 us |
+| circumscribed sphere   |    0.50 mm |   10.53 mm |    0.00 mm |  -0.22 mm |  0.50 mm |  556 us |
+| inscribed sphere       |    0.50 mm |   -0.68 mm |    0.68 mm |   0.00 mm |  0.50 mm |  495 us |
+| baked mesh SDF (ours)  |    0.50 mm |    4.40 mm |    0.00 mm |   0.00 mm |  0.50 mm |  635 us |
 
 `TRUE clear` is the smallest exact distance from any sampled point on
 the instrument (tip and shaft) to the real mesh surface, measured with

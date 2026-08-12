@@ -223,6 +223,7 @@ def summarize(log) -> dict:
         jlim_viol_rad=float(max(0.0, log["jlim"].max())),
         rcm_max_mm=float(log["rcm"].max()) * 1e3,
         manip_min=float(log["manip"].min()),
+        p50_us=float(np.percentile(log["solve_us"], 50)),
         p99_us=float(np.percentile(log["solve_us"], 99)),
         infeasible=int(log["infeasible"]),
     )
@@ -301,11 +302,12 @@ def save_media(scene, runs):
             import imageio.v2 as imageio
         except ImportError:
             return written
-        a, b = have[0]["frames"], have[1]["frames"]
-        n = max(len(a), len(b))
-        pad = lambda f: f + [f[-1]] * (n - len(f))
-        a, b = pad(a), pad(b)
-        combo = [np.hstack([x, y]) for x, y in zip(a, b)]
+        from .viz import stack_labeled
+
+        label = lambda r: ("joint-space QP (ours)" if r["method"] == "qp"
+                           else "Cartesian projection")
+        combo = stack_labeled([r["frames"] for r in have],
+                              [label(r) for r in have])
         vid = os.path.join(LOGDIR, f"phase2_{scene.name}.mp4")
         imageio.mimsave(vid, combo, fps=25, quality=8, macro_block_size=1)
         written.append(vid)
@@ -314,7 +316,8 @@ def save_media(scene, runs):
 
 def results_table(rows) -> str:
     hdr = (f"| {'robot':6} | {'controller':20} | {'goal':>9} | {'wall':>9} | "
-           f"{'joint lim':>10} | {'RCM max':>9} | {'min sig':>8} | {'p99':>8} |")
+           f"{'joint lim':>10} | {'RCM max':>9} | {'min sig':>8} | {'p50':>8} | "
+           f"{'p99':>8} |")
     sep = "|" + "|".join("-" * (len(c) + 2) for c in hdr.split("|")[1:-1]) + "|"
     lines = [hdr, sep]
     for r in rows:
@@ -324,7 +327,7 @@ def results_table(rows) -> str:
             f"| {r['robot']:6} | {name:20} | {goal:>9} | "
             f"{r['wall_viol_mm']:>6.3f} mm | {r['jlim_viol_rad']:>7.4f} rad | "
             f"{r['rcm_max_mm']:>6.2f} mm | {r['manip_min']:>8.4f} | "
-            f"{r['p99_us']:>5.0f} us |")
+            f"{r['p50_us']:>5.0f} us | {r['p99_us']:>5.0f} us |")
     return "\n".join(lines)
 
 
@@ -357,7 +360,7 @@ def main():
                   f"wall {row['wall_viol_mm']:6.3f} mm | "
                   f"jlim {row['jlim_viol_rad']:7.4f} rad | "
                   f"RCM {row['rcm_max_mm']:6.2f} mm | "
-                  f"p99 {row['p99_us']:5.0f} us")
+                  f"p50 {row['p50_us']:5.0f} us | p99 {row['p99_us']:5.0f} us")
 
         artifacts.append(make_dashboard(scene, runs))
         if not args.no_video:

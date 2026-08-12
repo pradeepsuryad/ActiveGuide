@@ -441,9 +441,10 @@ def save_media(runs):
             import imageio.v2 as imageio
         except ImportError:
             return written
-        n = max(len(r["frames"]) for r in have)
-        pad = lambda f: f + [f[-1]] * (n - len(f))
-        combo = [np.hstack(cols) for cols in zip(*(pad(r["frames"]) for r in have))]
+        from .viz import stack_labeled
+
+        combo = stack_labeled([r["frames"] for r in have],
+                              [STYLE[r["wall"]]["label"] for r in have])
         vid = os.path.join(LOGDIR, "phase3.mp4")
         imageio.mimsave(vid, combo, fps=25, quality=8, macro_block_size=1)
         written.append(vid)
