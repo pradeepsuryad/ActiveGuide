@@ -1,0 +1,52 @@
+name: tests
+
+# The README claims a passing suite and sub-millisecond solve times. This is
+# what makes the first half of that claim checkable by someone who has not
+# cloned the repo.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      # Report every failing version rather than stopping at the first, so a
+      # version-specific break is obvious from one run.
+      fail-fast: false
+      matrix:
+        # pyproject declares requires-python = ">=3.11"; this pins the floor
+        # and one version above it. Development happens on 3.14.
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Derive the dVRK PSM model
+        # Allowed to fail. tools/build_psm.py fetches from a third-party
+        # repository (WPI-AIM/dvrk_env), so this step depends on a network and
+        # on someone else's branch layout -- neither of which should be able to
+        # turn this repo's suite red. The 17 PSM tests skip cleanly when
+        # model/psm.xml is absent, which is deliberate and is itself covered by
+        # the suite, so a skipped fetch costs coverage but not correctness.
+        continue-on-error: true
+        run: python tools/build_psm.py --fetch
+
+      - name: Tests
+        # No display or GPU needed: the tests are pure kinematics, QP solves and
+        # SDF maths. Only the demos construct a mujoco.Renderer, and none of
+        # them run here.
+        run: python -m unittest discover -s tests -v

@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![MuJoCo](https://img.shields.io/badge/MuJoCo-3.9-blue.svg)](https://mujoco.org)
-[![tests](https://img.shields.io/badge/tests-135%20passing-brightgreen.svg)](tests/)
+[![tests](https://github.com/pradeepsuryad/ActiveGuide/actions/workflows/tests.yml/badge.svg)](https://github.com/pradeepsuryad/ActiveGuide/actions/workflows/tests.yml)
 
 Software/VR-assisted **virtual fixtures (active constraints)** for surgical
 robot control.
