@@ -4,13 +4,11 @@
 [![MuJoCo](https://img.shields.io/badge/MuJoCo-3.9-blue.svg)](https://mujoco.org)
 [![tests](https://github.com/pradeepsuryad/ActiveGuide/actions/workflows/tests.yml/badge.svg)](https://github.com/pradeepsuryad/ActiveGuide/actions/workflows/tests.yml)
 
-Software/VR-assisted **virtual fixtures (active constraints)** for surgical
-robot control.
+**Virtual fixtures (active constraints)** for surgical robot control.
 
 The system identifies protected anatomy, builds **virtual walls**
 (forbidden-region fixtures) and **guidance paths** (guidance fixtures) from it,
-enforces them on the robot, and surfaces them to the surgeon through a VR UI plus
-force or vibrotactile feedback.
+and enforces them on the robot.
 
 North star (Levels of Autonomy 1–2): give a *solo* surgeon enough active
 assistance to do what normally needs a second pair of hands.
@@ -273,10 +271,10 @@ against its own grid.
 - `model/scene_panda_anatomy.xml` — the Panda scene with the organ as a mesh.
 
 ## Roadmap
-- **Phase 1** Guidance fixtures + interactive teleop. *(done; Quest viz pending)*
+- **Phase 1** Guidance fixtures + interactive teleop. *(done; VR UI in Meta Quest planned)*
 - **Phase 2** Joint-space QP enforcement + RCM. *(done)*
 - **Phase 2b** The real dVRK PSM, mechanical RCM. *(done)*
-- **Phase 2c** Swappable feedback: dVRK MTM force vs. Quest vibration.
+- **Phase 2c** Swappable feedback: dVRK MTM force vs. Quest vibration. *(planned)*
 - **Phase 3** Build walls from segmented anatomy (CT/mesh → offset → SDF). *(done)*
 - **Phase 4** AI task recognition selects which fixtures are active.
 - **Phase 5** "Second-person" features (camera / retraction / next-step).
