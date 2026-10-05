@@ -205,7 +205,8 @@ class TestPsmClosedLoop(PsmTestBase):
     def test_no_violations(self):
         _, worst, _ = self._run()
         self.assertLessEqual(worst["wall"], 0.0)
-        self.assertLessEqual(worst["limits"], 0.0)
+        # Allow floating-point rounding: DAQP 0.10 lands ~1e-17 past the bound.
+        self.assertLessEqual(worst["limits"], 1e-12)
 
     def test_coupling_never_drifts(self):
         _, worst, _ = self._run()
