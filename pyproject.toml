@@ -22,7 +22,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "mujoco>=3.9",
+    "mujoco>=3.9,<3.12",  # see requirements.txt
     "numpy",
     "scipy",
     "matplotlib",

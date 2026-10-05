@@ -1,4 +1,4 @@
-mujoco>=3.9
+mujoco>=3.9,<3.12  # 3.14 imports URDF <mimic> joints as equality constraints, doubling build_psm.py's; 3.11 is the newest tested
 glfw
 trimesh
 numpy
