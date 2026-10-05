@@ -17,7 +17,7 @@ assistance to do what normally needs a second pair of hands.
 
 *One organ, three models of it, same fixtures throughout. Left: a sphere drawn
 around the organ — safe, but it swallows 55 cm³ of empty workspace. Middle: a
-sphere inside it — the tool enters real tissue. Right: the organ's own distance
+sphere inside it — the tool enters the organ. Right: the organ's own distance
 field.*
 
 ## Results at a glance
@@ -25,13 +25,15 @@ field.*
 | phase | what it adds | headline |
 |---|---|---|
 | **0** | forbidden-region fixture (virtual wall) | tool held exactly at its 10 mm margin; the unassisted ghost reaches **34 mm inside** the anatomy |
-| **1** | guidance fixture along a path | path error **0.22 mm vs 29.76 mm** — 135× tremor suppression |
+| **1** | guidance fixture along a path | mean path error **0.22 mm vs 29.76 mm** for raw operator input — 135× lower |
 | **2** | joint-space QP enforcement + RCM | trocar held to **0.50 mm vs 27.35 mm** for Cartesian projection — 55× tighter |
-| **2b** | the real dVRK PSM | mechanical remote centre reproduced to **0.013 mm**; dropping the `<mimic>` joints costs **90.1 mm** |
-| **3** | walls from segmented anatomy | inscribed sphere enters the organ by **0.68 mm**, mesh field by **0.00 mm** — at **540×** the speed of exact queries |
+| **2b** | a simulated dVRK PSM | mechanical remote centre reproduced to **0.013 mm**; dropping the `<mimic>` joints costs **90.1 mm** |
+| **3** | walls from a synthetic organ phantom | inscribed sphere enters the organ by **0.68 mm**, mesh field by **0.00 mm** — at **540×** the speed of exact queries |
 
-Every number on this page is produced by the commands below, and every table is
-written by the demo that measured it (`docs/phase*_results.md`).
+The demos below print their numbers and save their plots. Only the Phase 2 and
+Phase 3 demos also write their tables to a file; the committed copies are
+`docs/phase2_results.md` and `docs/phase3_results.md` (Phase 3's p50 column is
+printed, not written).
 
 ```bash
 pip install -e ".[media]"
@@ -71,7 +73,8 @@ responsibilities.
 - `activeguide/sdf.py` — signed-distance primitives (sphere/plane/box/union).
 - `activeguide/fixtures.py` — `ForbiddenRegionFixture`: dt-aware predictive
   velocity projection (robot-side enforcement) + spring-damper feedback force
-  (MTM) + 0..1 warning level (Quest vibration / sensory substitution).
+  (for MTM force feedback, planned) + 0..1 warning level (for Quest vibration /
+  sensory substitution, planned).
 - `model/scene.xml`, `activeguide/demo_phase0.py`.
 
 ## Phase 1 — Guidance fixture + interactive teleop
@@ -89,7 +92,7 @@ back onto the path. Safety composes last, so assistance can never override it.
 | mean path error | **0.22 mm** | 29.76 mm |
 | min distance to anatomy | 47.85 mm (margin 10 mm) | — |
 
-**135× tremor suppression**, and the wall still holds while guidance is active.
+**135× lower mean path error**, and the wall still holds while guidance is active.
 
 - `activeguide/paths.py` — `Polyline` (closest point + tangent).
 - `activeguide/fixtures.py` — `GuidanceFixture`, `FixtureStack` (guidance first,
@@ -97,10 +100,10 @@ back onto the path. Safety composes last, so assistance can never override it.
 - `activeguide/interactive.py` — GLFW teleop (hold-to-move keys, mouse camera);
   the seam where Quest master input plugs in later.
 
-## Phase 2 — Joint-space enforcement on a real manipulator
+## Phase 2 — Joint-space enforcement on a simulated manipulator
 
 Phases 0–1 constrained a free-floating *point* in Cartesian space (the tool was
-a MuJoCo mocap body). Phase 2 puts an actual 7-DOF arm in the loop and enforces
+a MuJoCo mocap body). Phase 2 puts a simulated 7-DOF arm in the loop and enforces
 every fixture as a **Vector Field Inequality** inside one QP per control step:
 
 ```
@@ -155,10 +158,11 @@ in both the free and actively-clamped regimes (`tests/test_qp.py`).
 - `model/scene_panda.xml` — 7-DOF Panda + 0.42 m laparoscopic shaft, trocar,
   anatomy, goal.
 
-## Phase 2b — the real dVRK PSM
+## Phase 2b — a simulated dVRK PSM
 
-The same fixture stack runs unchanged on the actual da Vinci Patient-Side
-Manipulator, derived from the official description.
+The same fixture stack runs unchanged on a simulated da Vinci Patient-Side
+Manipulator, built from the upstream dVRK description. It is a kinematic model:
+its masses are recomputed from mesh volume and do not match the real PSM.
 
 **There is no official dVRK MJCF** (checked 2026-08-12: not in
 `mujoco_menagerie`, not in `jhu-dvrk/dvrk_model`, not in `WPI-AIM/dvrk_env` —
@@ -192,7 +196,7 @@ the couplings are *also* imposed as exact QP equality rows
 
 ![Phase 2 PSM dashboard](docs/phase2_psm_dashboard.png)
 
-## Phase 3 — walls built from segmented anatomy
+## Phase 3 — walls built from a synthetic organ phantom
 
 Phases 0–2 protected a sphere, because a closed-form SDF was all the controller
 needed. Real anatomy comes out of a CT/MR segmentation as a label volume or a
@@ -206,9 +210,9 @@ the **true mesh**, never against the approximation it was driving on:
 
 | controller's model | goal | **true clearance** | inside the organ | believed | p50 | p99 |
 |---|---|---|---|---|---|---|
-| circumscribed sphere | 0.50 mm *(48% longer path)* | 10.53 mm | 0.00 mm | −0.22 mm | 173 µs | 556 µs |
+| circumscribed sphere | 0.50 mm | 10.53 mm | 0.00 mm | −0.22 mm | 173 µs | 556 µs |
 | inscribed sphere | 0.50 mm | **−0.68 mm** | **0.68 mm** | 0.00 mm | 175 µs | 495 µs |
-| **baked mesh SDF** | 0.50 mm *(fastest)* | 4.40 mm | **0.00 mm** | 0.00 mm | 209 µs | 635 µs |
+| **baked mesh SDF** | 0.50 mm | 4.40 mm | **0.00 mm** | 0.00 mm | 209 µs | 635 µs |
 
 All three believed they were riding their 4 mm margin the whole time — **a
 fixture cannot detect that its own model of the anatomy is wrong.**
@@ -238,8 +242,8 @@ Three things were worth getting right:
 against exact geometry costs **3.5 ms**, and a control step needs one per sample
 point — tip plus two shaft samples here — against a 2 ms budget for the whole
 step. Baking moves that cost offline and makes the online cost independent of
-mesh complexity: **6.4 µs** for the same query, a **540×** reduction, and a
-200k-triangle liver queries as fast as a sphere. `rtree` is not required —
+mesh complexity: **6.4 µs** for the same query, a **540×** reduction.
+`rtree` is not required —
 closest-triangle search runs on `scipy.spatial.cKDTree`, and the candidate
 pruning is checked against brute force over every triangle rather than assumed.
 
@@ -273,9 +277,9 @@ against its own grid.
 ## Roadmap
 - **Phase 1** Guidance fixtures + interactive teleop. *(done; VR UI in Meta Quest planned)*
 - **Phase 2** Joint-space QP enforcement + RCM. *(done)*
-- **Phase 2b** The real dVRK PSM, mechanical RCM. *(done)*
+- **Phase 2b** A simulated dVRK PSM, mechanical RCM. *(done)*
 - **Phase 2c** Swappable feedback: dVRK MTM force vs. Quest vibration. *(planned)*
-- **Phase 3** Build walls from segmented anatomy (CT/mesh → offset → SDF). *(done)*
+- **Phase 3** Build walls from anatomy (mesh or label volume → offset → SDF), so far only on synthetic data. *(done)*
 - **Phase 4** AI task recognition selects which fixtures are active.
 - **Phase 5** "Second-person" features (camera / retraction / next-step).
 - **Phase 6** User study: solo+system vs. solo vs. two-person.
@@ -292,7 +296,7 @@ against its own grid.
 | **Geometry** | `trimesh` (mesh I/O + phantom); `scipy` does the SDF bake |
 | **Plots / media** | `matplotlib`, and `imageio` + `pillow` for video and GIFs |
 | **Tests** | `unittest` (stdlib) |
-| **Target hardware** | dVRK (MTM force feedback) + Meta Quest (vibrotactile) — Phase 2+ |
+| **Target hardware** | dVRK (MTM force feedback) + Meta Quest (vibrotactile) — planned, not yet integrated |
 
 Runs headless for verification and plotting; `--view` opens the GLFW window and
 needs a GPU/display. `logs/` output is regenerable and not tracked; the copies
@@ -315,7 +319,7 @@ python -m venv .venv
 # Phase 2 — Cartesian projection vs joint-space QP, on both robots
 .\.venv\Scripts\python.exe -m activeguide.demo_phase2
 .\.venv\Scripts\python.exe -m activeguide.demo_phase2 --no-video   # plots only, clean timings
-# Phase 3 — segmented anatomy: sphere approximations vs the baked mesh field
+# Phase 3 — organ phantom: sphere approximations vs the baked mesh field
 .\.venv\Scripts\python.exe tools\build_anatomy.py                  # optional: demo bakes on first run
 .\.venv\Scripts\python.exe tools\build_anatomy.py --mesh liver.stl --scale 0.001
 .\.venv\Scripts\python.exe -m activeguide.demo_phase3
@@ -330,8 +334,8 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-Solve times are quoted from `--no-video` runs. Interleaving the renderer into
-the control loop roughly doubles them, and is not what a controller does.
+Solve times are quoted from `--no-video` runs, which keep the renderer out of
+the control loop.
 
 ## Key references
 - Bowyer, Davies & Rodriguez y Baena, *Active Constraints / Virtual Fixtures:
