@@ -54,7 +54,8 @@ XACRO = PSM_DIR / "psm.urdf.xacro"
 URDF = PSM_DIR / "psm.urdf"
 OUT = ROOT / "model" / "psm.xml"
 
-UPSTREAM = ("https://raw.githubusercontent.com/WPI-AIM/dvrk_env/master/"
+# Pinned to upstream master as of 2026-10 (last changed 2020-03-02), so builds are reproducible.
+UPSTREAM = ("https://raw.githubusercontent.com/WPI-AIM/dvrk_env/675a3fa793e9d3dde95340fb24c3bda233708ab3/"
             "dvrk_description/psm")
 MESHES = [
     "base_link", "yaw_link", "pitch_back_link", "pitch_bottom_link",
