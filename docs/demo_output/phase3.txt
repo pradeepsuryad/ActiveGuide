@@ -1,0 +1,23 @@
+anatomy    baked 270,465 cells @ 1.50 mm in 4.5 s | max over-estimate 0.605 mm | 0 sign mismatches
+           1280 faces, watertight=True, volume 45.0 cm^3
+  circumscribed sphere   reached  in 5839 steps | true clearance   10.53 mm | organ violation  0.00 mm | p99   474 us
+  inscribed sphere       reached  in 4165 steps | true clearance   -0.68 mm | organ violation  0.68 mm | p99   492 us
+  baked mesh SDF (ours)  reached  in 3972 steps | true clearance    4.58 mm | organ violation  0.00 mm | p99   496 us
+
+sphere fits about the organ centre: inscribed 16.6 mm, circumscribed 28.8 mm (shape error 12.2 mm)
+organ 44.6 cm^3 | inscribed sphere leaves 25.7 cm^3 (57% of it) unprotected | circumscribed sphere denies 55.2 cm^3 of free space
+field query (distance+normal): 5.2 us, vs 3289 us for the exact mesh
+  circumscribed sphere   solve p50   159 us  p99   474 us  infeasible 0
+  inscribed sphere       solve p50   158 us  p99   492 us  infeasible 0
+  baked mesh SDF (ours)  solve p50   179 us  p99   496 us  infeasible 0
+
+| anatomy model          |       goal | TRUE clear | organ viol |  believed |  RCM max |     p99 |
+|--------------------------|--------------|--------------|--------------|-------------|------------|-----------|
+| circumscribed sphere   |    0.50 mm |   10.53 mm |    0.00 mm |  -0.22 mm |  0.50 mm |  474 us |
+| inscribed sphere       |    0.50 mm |   -0.68 mm |    0.68 mm |   0.00 mm |  0.50 mm |  492 us |
+| baked mesh SDF (ours)  |    0.50 mm |    4.58 mm |    0.00 mm |   0.00 mm |  0.50 mm |  496 us |
+
+wrote:
+  logs/phase3_dashboard.png
+  logs/phase3_field.png
+  logs/phase3_results.md

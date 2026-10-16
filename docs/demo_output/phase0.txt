@@ -1,0 +1,10 @@
+Phase 0 -- Forbidden-Region Virtual Fixture
+  tool  min SDF distance :   10.00 mm  (must stay >= 6.0 mm tip radius)
+  ghost min SDF distance :  -34.01 mm
+  peak warning level     :    1.00  (vibrotactile cue, 0..1 -- fires as tool nears the wall)
+  peak rendered force    :    0.00 N  (0 is expected: robot-side clamp stops AT the margin, no penetration)
+  tool stays out of anatomy : PASS
+  ghost penetrates anatomy  : PASS
+  wrote logs/phase0_distance.png
+  wrote logs/phase0_trajectory.png
+RESULT: PASS

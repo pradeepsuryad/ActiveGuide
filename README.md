@@ -28,12 +28,12 @@ field.*
 | **1** | guidance fixture along a path | mean path error **0.22 mm vs 29.76 mm** for raw operator input — 135× lower |
 | **2** | joint-space QP enforcement + RCM | trocar held to **0.50 mm vs 27.35 mm** for Cartesian projection — 55× tighter |
 | **2b** | a simulated dVRK PSM | mechanical remote centre reproduced to **0.013 mm**; dropping the `<mimic>` joints costs **90.1 mm** |
-| **3** | walls from a synthetic organ phantom | inscribed sphere enters the organ by **0.68 mm**, mesh field by **0.00 mm** — at **540×** the speed of exact queries |
+| **3** | walls from a synthetic organ phantom | inscribed sphere enters the organ by **0.68 mm**, mesh field by **0.00 mm** — at **630×** the speed of exact queries |
 
-The demos below print their numbers and save their plots. Only the Phase 2 and
-Phase 3 demos also write their tables to a file; the committed copies are
-`docs/phase2_results.md` and `docs/phase3_results.md` (Phase 3's p50 column is
-printed, not written).
+The demos below print their numbers and save their plots. The console output of
+one run of each, with the environment it ran in, is committed under
+`docs/demo_output/`; Phases 2 and 3 also write their tables to
+`docs/phase2_results.md` and `docs/phase3_results.md`.
 
 ```bash
 pip install -e ".[media]"
@@ -124,10 +124,10 @@ difference is *where* enforcement happens:
 
 | robot | controller | goal | wall viol. | joint lim | RCM max | σ_min(J) | p50 | p99 |
 |---|---|---|---|---|---|---|---|---|
-| Panda | Cartesian projection | 0.50 mm | 0.000 mm | 0.0000 rad | **27.35 mm** | 0.3035 | 28 µs | 109 µs |
-| Panda | **joint-space QP** | 0.50 mm | 0.000 mm | 0.0000 rad | **0.50 mm** | 0.2988 | 165 µs | 515 µs |
-| PSM | Cartesian projection | 0.50 mm | 0.000 mm | 0.0000 rad | 0.01 mm | 0.3527 | 79 µs | 261 µs |
-| PSM | **joint-space QP** | 0.50 mm | 0.000 mm | 0.0000 rad | 0.01 mm | 0.3527 | 209 µs | 532 µs |
+| Panda | Cartesian projection | 0.50 mm | 0.000 mm | 0.0000 rad | **27.35 mm** | 0.3035 | 27 µs | 73 µs |
+| Panda | **joint-space QP** | 0.50 mm | 0.000 mm | 0.0000 rad | **0.50 mm** | 0.2988 | 147 µs | 431 µs |
+| PSM | Cartesian projection | 0.50 mm | 0.000 mm | 0.0000 rad | 0.01 mm | 0.3527 | 71 µs | 200 µs |
+| PSM | **joint-space QP** | 0.50 mm | 0.000 mm | 0.0000 rad | 0.01 mm | 0.3527 | 182 µs | 467 µs |
 
 On the **Panda** the trocar constraint exists only in software, and the QP holds
 it **55× tighter** — the Cartesian controller reaches the same goal while
@@ -187,7 +187,7 @@ warning, reports 13 independent DOFs instead of 6 + jaw, and is badly wrong:
 | couplings applied | **0.013 mm** |
 | couplings dropped (naive import) | **90.1 mm** |
 
-`python tools/report_psm_rcm.py` prints both numbers.
+`python tools/report_psm_rcm.py` prints both numbers (`docs/demo_output/psm_rcm.txt`).
 
 The builder restores them as `<equality><joint>` constraints, and
 `tests/test_psm.py::TestParallelogramIsLoadBearing` pins *both* directions so the
@@ -212,9 +212,9 @@ the **true mesh**, never against the approximation it was driving on:
 
 | controller's model | goal | **true clearance** | inside the organ | believed | p50 | p99 |
 |---|---|---|---|---|---|---|
-| circumscribed sphere | 0.50 mm | 10.53 mm | 0.00 mm | −0.22 mm | 173 µs | 556 µs |
-| inscribed sphere | 0.50 mm | **−0.68 mm** | **0.68 mm** | 0.00 mm | 175 µs | 495 µs |
-| **baked mesh SDF** | 0.50 mm | 4.40 mm | **0.00 mm** | 0.00 mm | 209 µs | 635 µs |
+| circumscribed sphere | 0.50 mm | 10.53 mm | 0.00 mm | −0.22 mm | 159 µs | 474 µs |
+| inscribed sphere | 0.50 mm | **−0.68 mm** | **0.68 mm** | 0.00 mm | 158 µs | 492 µs |
+| **baked mesh SDF** | 0.50 mm | 4.58 mm | **0.00 mm** | 0.00 mm | 179 µs | 496 µs |
 
 All three believed they were riding their 4 mm margin the whole time — **a
 fixture cannot detect that its own model of the anatomy is wrong.**
@@ -241,10 +241,10 @@ is what keeping one representation since Phase 0 bought.
 Three things were worth getting right:
 
 **Exact mesh queries are not real-time.** One distance-plus-gradient evaluation
-against exact geometry costs **3.5 ms**, and a control step needs one per sample
+against exact geometry costs **3.3 ms**, and a control step needs one per sample
 point — tip plus two shaft samples here — against a 2 ms budget for the whole
 step. Baking moves that cost offline and makes the online cost independent of
-mesh complexity: **6.4 µs** for the same query, a **540×** reduction.
+mesh complexity: **5.2 µs** for the same query, a **630×** reduction.
 `rtree` is not required —
 closest-triangle search runs on `scipy.spatial.cKDTree`, and the candidate
 pruning is checked against brute force over every triangle rather than assumed.
@@ -337,7 +337,9 @@ python -m venv .venv
 ```
 
 Solve times are quoted from `--no-video` runs, which keep the renderer out of
-the control loop.
+the control loop, on Python 3.11, MuJoCo 3.11 and daqp 0.10.3 in WSL2 on an
+Intel Core Ultra 9 185H (`docs/demo_output/environment.txt`). They vary from
+run to run and machine to machine.
 
 ## Key references
 - Bowyer, Davies & Rodriguez y Baena, *Active Constraints / Virtual Fixtures:

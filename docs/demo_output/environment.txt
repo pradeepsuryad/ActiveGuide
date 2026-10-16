@@ -1,0 +1,14 @@
+# Console output of each demo, one run each, in this order, on an otherwise idle machine
+# (2026-10-16). Commands, from the repo root:
+#   python tools/report_psm_rcm.py               -> psm_rcm.txt
+#   python -m activeguide.demo_phase0            -> phase0.txt
+#   python -m activeguide.demo_phase1            -> phase1.txt
+#   python -m activeguide.demo_phase2 --no-video -> phase2.txt
+#   python -m activeguide.demo_phase3 --no-video -> phase3.txt
+# model/psm.xml was built by `python tools/build_psm.py --fetch` at the pinned upstream
+# commit. Paths in the output are shortened to the repo root; nothing else is edited.
+commit: 5e243b3, plus tools/report_psm_rcm.py (added in the same commit as this file)
+python 3.11.15, mujoco 3.11.0, daqp 0.10.3, numpy 2.4.6
+activeguide imported from: activeguide
+cpu: Intel(R) Core(TM) Ultra 9 185H, 12 logical CPUs in WSL2
+neq in model/psm.xml: 5

@@ -1,0 +1,9 @@
+Phase 1 -- Guidance Fixture + Forbidden Region (composed)
+  mean path error  tool :    0.22 mm
+  mean path error  ghost:   29.76 mm
+  tool min SDF distance :   47.85 mm  (margin 10.0 mm)
+  guidance keeps tool on path : PASS
+  safety keeps tool out anatomy: PASS
+  wrote logs/phase1_trajectory.png
+  wrote logs/phase1_path_error.png
+RESULT: PASS

@@ -1,0 +1,19 @@
+=== PANDA =====================================================
+  cartesian  reached  in 2361 steps | wall  0.000 mm | jlim  0.0000 rad | RCM  27.35 mm | p50    27 us | p99    73 us
+  qp         reached  in 2393 steps | wall  0.000 mm | jlim  0.0000 rad | RCM   0.50 mm | p50   147 us | p99   431 us
+
+=== PSM =======================================================
+  cartesian  reached  in 2561 steps | wall  0.000 mm | jlim  0.0000 rad | RCM   0.01 mm | p50    71 us | p99   200 us
+  qp         reached  in 2562 steps | wall  0.000 mm | jlim  0.0000 rad | RCM   0.01 mm | p50   182 us | p99   467 us
+
+| robot  | controller           |      goal |      wall |  joint lim |   RCM max |  min sig |      p50 |      p99 |
+|----------|------------------------|-------------|-------------|--------------|-------------|------------|------------|------------|
+| panda  | Cartesian proj.      |   0.50 mm |  0.000 mm |  0.0000 rad |  27.35 mm |   0.3035 |    27 us |    73 us |
+| panda  | joint-space QP       |   0.50 mm |  0.000 mm |  0.0000 rad |   0.50 mm |   0.2988 |   147 us |   431 us |
+| psm    | Cartesian proj.      |   0.50 mm |  0.000 mm |  0.0000 rad |   0.01 mm |   0.3527 |    71 us |   200 us |
+| psm    | joint-space QP       |   0.50 mm |  0.000 mm |  0.0000 rad |   0.01 mm |   0.3527 |   182 us |   467 us |
+
+wrote:
+  logs/phase2_panda_dashboard.png
+  logs/phase2_psm_dashboard.png
+  logs/phase2_results.md

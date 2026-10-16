@@ -1,0 +1,3 @@
+PSM remote-centre error, worst over 75 poses (yaw x pitch x insertion):
+  couplings applied:            0.013 mm
+  couplings dropped (naive import): 90.1 mm
