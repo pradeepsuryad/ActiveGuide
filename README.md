@@ -187,6 +187,8 @@ warning, reports 13 independent DOFs instead of 6 + jaw, and is badly wrong:
 | couplings applied | **0.013 mm** |
 | couplings dropped (naive import) | **90.1 mm** |
 
+`python tools/report_psm_rcm.py` prints both numbers.
+
 The builder restores them as `<equality><joint>` constraints, and
 `tests/test_psm.py::TestParallelogramIsLoadBearing` pins *both* directions so the
 fix cannot be silently removed. Because MuJoCo enforces `<equality>` only in its
